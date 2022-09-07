@@ -1,17 +1,20 @@
 ARG RANCHER_VERSION=v2.6.8
 FROM rancher/rancher:${RANCHER_VERSION} as image_builder
 
-RUN zypper -n install systemd systemd-sysvinit wicked-service
+RUN zypper -n install systemd systemd-sysvinit wicked-service patch
 
 ADD ["files", "/"]
 
-COPY ["rancher-env.sh", "/tmp/rancher-env.sh"]
-RUN cat /usr/bin/entrypoint.sh | sed -e 's/exec tini -- /exec /g' | tail -n '+8' > /tmp/b && \
+COPY ["rancher-run.patch", "rancher-env.sh", "/tmp/"]
+RUN patch /usr/bin/entrypoint.sh -p1 /tmp/rancher-run.patch -o - > /tmp/b && \
     cat /tmp/rancher-env.sh /tmp/b > /usr/bin/rancher-run.sh && \
     chmod +x /usr/bin/rancher-run.sh
 
 RUN systemctl enable wicked.service && \
+    systemctl enable console-getty.service && \
+    sed -i -e 's|lxc/||g' "/usr/lib/systemd/system/container-getty@.service" && \
     systemctl enable rancher.service
+
 
 # CLEAN UP
 RUN zypper -n clean -a && \
