@@ -3,11 +3,12 @@ FROM rancher/rancher:${RANCHER_VERSION} as image_builder
 
 RUN zypper -n install systemd systemd-sysvinit wicked-service
 
+ADD ["files", "/"]
+
 RUN cat /usr/bin/entrypoint.sh | sed -e 's/exec tini -- /exec /g' > /usr/bin/rancher-run.sh && \
     chmod +x /usr/bin/rancher-run.sh
 
 RUN systemctl enable wicked.service && \
-    systemctl enable systemd-journald.service && \
     systemctl enable rancher.service
 
 # CLEAN UP
