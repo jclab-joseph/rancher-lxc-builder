@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export HOME=/root
+
 export ARCH=amd64
 export IMAGE_REPO=rancher
 export SYSTEM_CHART_DEFAULT_BRANCH=release-v2.6
