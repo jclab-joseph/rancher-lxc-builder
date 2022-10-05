@@ -17,7 +17,6 @@ RUN export K3S_VERSION_URL="$(echo $K3S_VERSION | sed 's/+/%2b/g')" && \
     curl -sL https://github.com/k3s-io/k3s/releases/download/${K3S_VERSION_URL}/k3s -o /usr/local/bin/k3s && \
     curl -sL https://github.com/k3s-io/k3s/releases/download/${K3S_VERSION_URL}/k3s-airgap-images-amd64.tar.gz -o /tmp/k3s-airgap-images-amd64.tar.gz && \
     gzip -dc /tmp/k3s-airgap-images-amd64.tar.gz > /var/lib/rancher/k3s/agent/images/k3s-airgap-images-amd64.tar && \
-    mkdir -p /opt/initialize/ && \
     chmod +x /usr/local/bin/k3s
 
 # ===== INSTALL HELM =====
@@ -35,7 +34,6 @@ RUN cat /lib/systemd/system/rc-local.service | grep -i 'install' || \
 WantedBy=multi-user.target\n" | tee -a /lib/systemd/system/rc-local.service
 
 RUN cp -rf /tmp/files/* / && \
-    chmod +x /opt/initialize/*.sh && \
     chmod +x /etc/rc.local && \
     sed -E 's|^ExecStart=/lib/systemd/systemd-networkd-wait-online$|ExecStart=/lib/systemd/systemd-networkd-wait-online --timeout=5|g' /lib/systemd/system/systemd-networkd-wait-online.service && \
     systemctl enable networking.service && \
