@@ -1,25 +1,54 @@
-ARG RANCHER_VERSION=v2.6.8
-FROM rancher/rancher:${RANCHER_VERSION} as image_builder
+FROM debian:bullseye as image_builder
 
-RUN zypper -n install systemd systemd-sysvinit wicked-service patch
+ARG DEBIAN_FRONTEND=noninteractive
 
-ADD ["files", "/"]
+RUN apt-get update && \
+    apt-get install -y \
+    systemd systemd-sysv iproute2 isc-dhcp-client ifupdown \
+    tar procps passwd gzip util-linux \
+    ca-certificates \
+    curl lsb-release \
+    iptables ulogd2
 
-COPY ["rancher-run.patch", "rancher-env.sh", "/tmp/"]
-RUN patch /usr/bin/entrypoint.sh -p1 /tmp/rancher-run.patch -o - > /tmp/b && \
-    cat /tmp/rancher-env.sh /tmp/b > /usr/bin/rancher-run.sh && \
-    chmod +x /usr/bin/rancher-run.sh
+# ===== INTSALL K3S =====
+ARG K3S_VERSION="v1.23.10+k3s1"
+RUN export K3S_VERSION_URL="$(echo $K3S_VERSION | sed 's/+/%2b/g')" && \
+    mkdir -p /var/lib/rancher/k3s/agent/images/ && \
+    curl -sL https://github.com/k3s-io/k3s/releases/download/${K3S_VERSION_URL}/k3s -o /usr/local/bin/k3s && \
+    curl -sL https://github.com/k3s-io/k3s/releases/download/${K3S_VERSION_URL}/k3s-airgap-images-amd64.tar.gz -o /tmp/k3s-airgap-images-amd64.tar.gz && \
+    gzip -dc /tmp/k3s-airgap-images-amd64.tar.gz > /var/lib/rancher/k3s/agent/images/k3s-airgap-images-amd64.tar && \
+    mkdir -p /opt/initialize/ && \
+    chmod +x /usr/local/bin/k3s
 
-RUN systemctl enable wicked.service && \
-    systemctl enable console-getty.service && \
-    sed -i -e 's|lxc/||g' "/usr/lib/systemd/system/container-getty@.service" && \
-    systemctl enable rancher.service
+# ===== INSTALL HELM =====
+RUN curl -fsSL -o /tmp/get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 && \
+    bash /tmp/get_helm.sh
 
+# ===== COPY FILES =====
 
-# CLEAN UP
-RUN zypper -n clean -a && \
-    rm -rf /tmp/* /var/tmp/* /usr/share/doc/packages/*
+ADD ["files", "/tmp/files"]
 
+RUN cat /lib/systemd/system/rc-local.service | grep -i 'install' || \
+    printf "\
+\n\
+[Install]\n\
+WantedBy=multi-user.target\n" | tee -a /lib/systemd/system/rc-local.service
+
+RUN cp -rf /tmp/files/* / && \
+    chmod +x /opt/initialize/*.sh && \
+    chmod +x /etc/rc.local && \
+    sed -E 's|^ExecStart=/lib/systemd/systemd-networkd-wait-online$|ExecStart=/lib/systemd/systemd-networkd-wait-online --timeout=5|g' /lib/systemd/system/systemd-networkd-wait-online.service && \
+    systemctl enable networking.service && \
+    systemctl enable systemd-resolved.service && \
+    systemctl enable systemd-journald.service && \
+    systemctl enable rc-local.service
+
+# ===== CLEAN UP =====
+
+RUN apt-get clean && \
+    rm -rf /tmp/*
+
+# ===== PACKAGER =====
 
 FROM alpine:3.16 as packager
 
@@ -28,9 +57,10 @@ RUN apk add \
     mkdir -p /rootfs
 
 COPY --from=image_builder ["/", "/rootfs"]
+COPY ["images.tar", "/rootfs/var/lib/rancher/k3s/agent/images/"]
 RUN cd /rootfs && tar -czf ../rootfs.tar.gz .
 
+# ===== OUTPUT FILE =====
 FROM scratch
-ARG RANCHER_VERSION=v2.6.8
-COPY --from=packager ["/rootfs.tar.gz", "/rancher-${RANCHER_VERSION}-rootfs.tar.gz"]
+COPY --from=packager ["/rootfs.tar.gz", "/rootfs.tar.gz"]
 
