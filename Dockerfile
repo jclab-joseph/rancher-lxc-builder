@@ -35,7 +35,7 @@ WantedBy=multi-user.target\n" | tee -a /lib/systemd/system/rc-local.service
 
 RUN cp -rf /tmp/files/* / && \
     chmod +x /etc/rc.local && \
-    sed -E 's|^ExecStart=/lib/systemd/systemd-networkd-wait-online$|ExecStart=/lib/systemd/systemd-networkd-wait-online --timeout=5|g' /lib/systemd/system/systemd-networkd-wait-online.service && \
+    sed -i -E 's|^ExecStart=/lib/systemd/systemd-networkd-wait-online$|ExecStart=/lib/systemd/systemd-networkd-wait-online --timeout=5|g' /lib/systemd/system/systemd-networkd-wait-online.service && \
     systemctl enable networking.service && \
     systemctl enable systemd-resolved.service && \
     systemctl enable systemd-journald.service && \

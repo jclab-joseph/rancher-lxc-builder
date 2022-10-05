@@ -886,13 +886,6 @@ openrc_start() {
     $SUDO ${FILE_K3S_SERVICE} restart
 }
 
-copy_manifests() {
-    if [ "${CMD_K3S}" = "server" ] && [ "x${COPY_MANIFESTS}" = "xtrue" ]; then
-        mkdir -p /var/lib/rancher/k3s/server/manifests/
-        sh -c "cp -rf /opt/initialize/manifests/* /var/lib/rancher/k3s/server/manifests/"
-    fi
-}
-
 # --- startup systemd or openrc service ---
 service_enable_and_start() {
     if [ -f "/proc/cgroups" ] && [ "$(grep memory /proc/cgroups | while read -r n n n enabled; do echo $enabled; done)" -eq 0 ];
@@ -933,6 +926,5 @@ eval set -- $(escape "${INSTALL_K3S_EXEC}") $(quote "$@")
     systemd_disable
     create_env_file
     create_service_file
-    copy_manifests
     service_enable_and_start
 }
