@@ -16,8 +16,9 @@ INSTALL_K3S_SKIP_DOWNLOAD=true /root/initialize/install-k3s.sh
 
 # Requirements
 
-If cgroupv2-only system,
-
 ```
-lxc.mount.auto = proc:mixed sys:mixed cgroup:rw:force
+lxc.apparmor.profile = "unconfined"
+lxc.cgroup.devices.allow = "a"
+lxc.cap.drop = ""
+lxc.mount.auto = "proc:rw sys:rw cgroup:rw:force"
 ```
